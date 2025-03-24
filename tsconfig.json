@@ -2,8 +2,10 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "Es2022",
+    "moduleResolution": "Node",
     "rootDir": "src",
     "outDir": "dist",
+    "esModuleInterop": true,
     "removeComments": true,
     "pretty": true,
     "strict": true,

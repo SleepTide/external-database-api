@@ -1,0 +1,8 @@
+{
+  "debug": true,
+  "host": "10.10.1.154",
+  "port": 3000,
+  "database": {
+    "uri": "mongodb://root:admin@mongo.home:27017/external-database?authSource=admin"
+  }
+}
