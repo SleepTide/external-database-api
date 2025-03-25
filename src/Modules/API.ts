@@ -4,135 +4,133 @@ import Logger from "../Utils/Logger/Logger";
 import Member from "../Utils/Database/Schemas/Member";
 
 export enum HTTPCodes {
-    OK = 200,
-    BAD_REQUEST = 400,
-    UNAUTHORIZED = 401,
-    NOT_FOUND = 404,
-    CONFLICT = 409,
-    INTERNAL_ERROR = 500,
+  OK = 200,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  NOT_FOUND = 404,
+  CONFLICT = 409,
+  INTERNAL_ERROR = 500,
 }
 export type Member = {
-    entity_id: string;
-    username: string;
+  entity_id: string;
+  username: string;
 };
 
 export default class API {
-    public static Server: Application;
+  public static Server: Application;
 
-    constructor() {
-        this.Start();
-    }
+  constructor() {
+    this.Start();
+  }
 
-    private async Start(): Promise<void> {
-        const config = Filesystem.ReadConfig();
+  private async Start(): Promise<void> {
+    const config = Filesystem.ReadConfig();
 
-        API.Server = express();
+    API.Server = express();
 
-        this.Init();
+    this.Init();
 
-        API.Server.listen(config.port, config.host, (error) => {
-            if (error) {
-                Logger.Error("Failed to start server:", error);
-                process.exit(1);
-            }
+    API.Server.listen(config.port, config.host, (error) => {
+      if (error) {
+        Logger.Error("Failed to start server:", error);
+        process.exit(1);
+      }
 
-            Logger.Info(
-                `API has started on http://${config.host}:${config.port}/`,
-            );
-            return;
+      Logger.Info(`API has started on http://${config.host}:${config.port}/`);
+      return;
+    });
+  }
+  private Init(): void {
+    API.Server.use(express.json());
+
+    this.StatusEndpoints();
+    this.MemberEndpoints();
+
+    return;
+  }
+
+  private StatusEndpoints(): void {
+    API.Server.post("/status/", (req, res) => {
+      Logger.Debug(req.body, req.ip);
+
+      res.sendStatus(HTTPCodes.OK);
+
+      return;
+    });
+
+    return;
+  }
+  private MemberEndpoints(): void {
+    API.Server.post("/members/create/", async (req, res) => {
+      const body: Member = req.body;
+
+      if (!body.entity_id || !body.username) {
+        res.status(HTTPCodes.BAD_REQUEST).send({
+          message: "Missing required fields!",
         });
-    }
-    private Init(): void {
-        API.Server.use(express.json());
-
-        this.StatusEndpoints();
-        this.MemberEndpoints();
-
         return;
-    }
+      }
 
-    private StatusEndpoints(): void {
-        API.Server.post("/status/", (req, res) => {
-            Logger.Debug(req.body, req.ip);
+      const member = new Member(body);
 
-            res.sendStatus(HTTPCodes.OK);
+      await member.save();
 
-            return;
+      res.status(HTTPCodes.OK).send({ message: "Created Member!" });
+      return;
+    });
+    API.Server.post("/members/delete/:entity_id/", async (req, res) => {
+      const entity_id = req.params.entity_id;
+      const member = await Member.findOne({ entity_id });
+
+      if (!member) {
+        res.status(HTTPCodes.NOT_FOUND).send({
+          message: "Member not found!",
         });
-
         return;
-    }
-    private MemberEndpoints(): void {
-        API.Server.post("/members/create/", async (req, res) => {
-            const body: Member = req.body;
+      }
 
-            if (!body.entity_id || !body.username) {
-                res.status(HTTPCodes.BAD_REQUEST).send({
-                    message: "Missing required fields!",
-                });
-                return;
-            }
+      await Member.deleteOne({ _id: member._id });
 
-            const member = new Member(body);
+      res.status(HTTPCodes.OK).send({
+        message: "Member deleted!",
+      });
+      return;
+    });
+    API.Server.post("/members/search/", async (req, res) => {
+      const body = req.body;
 
-            await member.save();
-
-            res.status(HTTPCodes.OK).send({ message: "Created Member!" });
-            return;
+      if (!body.username) {
+        res.status(HTTPCodes.BAD_REQUEST).send({
+          message: "Missing username!",
         });
-        API.Server.post("/members/delete/:entity_id/", async (req, res) => {
-            const entity_id = req.params.entity_id;
-            const member = await Member.findOne({ entity_id });
+      }
 
-            if (!member) {
-                res.status(HTTPCodes.NOT_FOUND).send({
-                    message: "Member not found!",
-                });
-                return;
-            }
+      const member = await Member.findOne({ username: body.username });
 
-            await Member.deleteOne({ _id: member._id });
-
-            res.status(HTTPCodes.OK).send({
-                message: "Member deleted!",
-            });
-            return;
+      if (!member) {
+        res.status(HTTPCodes.NOT_FOUND).send({
+          message: "Member does not exist!",
         });
-        API.Server.post("/members/search/", async (req, res) => {
-            const body = req.body;
+        return;
+      }
 
-            if (!body.username) {
-                res.status(HTTPCodes.BAD_REQUEST).send({
-                    message: "Missing username!",
-                });
-            }
+      res.status(HTTPCodes.OK).send({ member });
+      return;
+    });
+    API.Server.get("/members/get/:entity_id/", async (req, res) => {
+      const entity_id = req.params.entity_id;
 
-            const member = await Member.findOne({ username: body.username });
+      const member = await Member.findOne({ entity_id });
 
-            if (!member) {
-                res.status(HTTPCodes.NOT_FOUND).send({
-                    message: "Member does not exist!",
-                });
-                return;
-            }
-
-            res.status(HTTPCodes.OK).send({ member });
-            return;
+      if (!member) {
+        res.status(HTTPCodes.NOT_FOUND).send({
+          message: "Member not found!",
         });
-        API.Server.get("/members/get/:entity_id/", async (req, res) => {
-            const entity_id = req.params.entity_id;
+        return;
+      }
 
-            const member = await Member.findOne({ entity_id });
-
-            if (!member) {
-                res.status(HTTPCodes.NOT_FOUND).send({
-                    message: "Member not found!",
-                });
-                return;
-            }
-
-            res.status(HTTPCodes.OK).send({ member });
-            return;
-        });
-    }
+      res.status(HTTPCodes.OK).send({ member });
+      return;
+    });
+  }
 }
